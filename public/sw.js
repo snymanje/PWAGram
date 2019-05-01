@@ -1,5 +1,5 @@
-var CACHE_STATIC_NAME = 'static-v4'
-var CACHE_DYNAMIC_NAME = 'dynamic-v4'
+var CACHE_STATIC_NAME = 'static-v5'
+var CACHE_DYNAMIC_NAME = 'dynamic-v5'
 
 self.addEventListener('install', function(event) {
   console.log('[Service Worker] Installing Service Worker ...', event);
@@ -7,7 +7,7 @@ self.addEventListener('install', function(event) {
     caches.open(CACHE_STATIC_NAME)
       .then(function(cache) {
         console.log('[Service worker precaching App Shell]')
-        cache.addAll(
+        return cache.addAll(
           [
             '/',
             '/index.html',
@@ -24,6 +24,9 @@ self.addEventListener('install', function(event) {
             'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
           ]
         )
+      })
+      .then(function() {
+        return self.skipWaiting();
       })
   ) 
 });
