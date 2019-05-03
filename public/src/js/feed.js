@@ -8,7 +8,7 @@ function openCreatePostModal() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
 
-    deferredPrompt.userChoice.then(function(choiceResult) {
+    deferredPrompt.userChoice.then(function (choiceResult) {
       console.log(choiceResult.outcome);
 
       if (choiceResult.outcome === 'dismissed') {
@@ -17,7 +17,6 @@ function openCreatePostModal() {
         console.log('User added to home screen');
       }
     });
-
     deferredPrompt = null;
   }
 }
@@ -29,6 +28,10 @@ function closeCreatePostModal() {
 shareImageButton.addEventListener('click', openCreatePostModal);
 
 closeCreatePostModalButton.addEventListener('click', closeCreatePostModal);
+
+function onSaveButtonClicked(event) {
+  console.log('clicked');
+}
 
 function createCard() {
   var cardWrapper = document.createElement('div');
@@ -48,14 +51,18 @@ function createCard() {
   cardSupportingText.textContent = 'In San Francisco';
   cardSupportingText.style.textAlign = 'center';
   cardWrapper.appendChild(cardSupportingText);
+  /*   var cardSaveButton = document.createElement('button');
+    cardSaveButton.textContent = 'Save';
+    cardSaveButton.addEventListener('click', onSaveButtonClicked);
+    cardWrapper.appendChild(cardSaveButton); */
   componentHandler.upgradeElement(cardWrapper);
   sharedMomentsArea.appendChild(cardWrapper);
 }
 
 fetch('https://httpbin.org/get')
-  .then(function(res) {
+  .then(function (res) {
     return res.json();
   })
-  .then(function(data) {
+  .then(function (data) {
     createCard();
   });
