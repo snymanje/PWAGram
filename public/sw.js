@@ -47,7 +47,54 @@ self.addEventListener('activate', function (event) {
     return self.clients.claim();
 });
 
+// Cache First then network strategy starts
 self.addEventListener('fetch', function (event) {
+    var url = 'https://httpbin.org/get';
+
+    if (event.request.url.indexOf(url) > -1) {
+        event.respondWith(
+            caches.open(CACHE_DYNAMIC_NAME)
+                .then(function (cache) {
+                    return fetch(event.request)
+                        .then(function (res) {
+                            cache.put(event.request, res.clone());
+                            return res;
+                        });
+                })
+        )
+    }
+    else {
+        event.respondWith(
+            caches.match(event.request)
+                .then(function (response) {
+                    if (response) {
+                        return response;
+                    } else {
+                        return fetch(event.request)
+                            .then(function (res) {
+                                return caches.open(CACHE_DYNAMIC_NAME)
+                                    .then(function (cache) {
+                                        cache.put(event.request.url, res.clone())
+                                        return res;
+                                    })
+                            })
+                            .catch(function (error) {
+                                return caches.open(CACHE_STATIC_NAME)
+                                    .then(function (cache) {
+                                        if (event.request.url.indexOf('/help')) {
+                                            return cache.match('/offline.html');
+                                        }
+                                    })
+                            });
+                    }
+                })
+        );
+    }
+});
+
+// Cache First then network strategy ends
+
+/* self.addEventListener('fetch', function (event) {
     event.respondWith(
         caches.match(event.request)
             .then(function (response) {
@@ -71,4 +118,4 @@ self.addEventListener('fetch', function (event) {
                 }
             })
     );
-});
+}); */
