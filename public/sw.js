@@ -1,11 +1,14 @@
-var CACHE_STATIC_NAME = 'static-v7'
-var CACHE_DYNAMIC_NAME = 'dynamic-v7'
+importScripts('/src/js/idb.js');
+
+var CACHE_STATIC_NAME = 'static-v8'
+var CACHE_DYNAMIC_NAME = 'dynamic-v8'
 var STATIC_FILES = [
   '/',
   '/index.html',
   '/offline.html',
   '/src/js/app.js',
   '/src/js/feed.js',
+  '/src/js/idb.js',
   '/src/js/promise.js',
   '/src/js/fetch.js',
   '/src/js/material.min.js',
@@ -15,7 +18,15 @@ var STATIC_FILES = [
   'https://fonts.googleapis.com/css?family=Roboto:400,700',
   'https://fonts.googleapis.com/icon?family=Material+Icons',
   'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
-]
+];
+
+var dbPromise = idb.open('posts-store', 1, function (db) {
+  if (!db.objectStoreNames.contains('posts')) {
+    db.createObjectStore('posts', {
+      keyPath: 'id'
+    });
+  }
+});
 
 //Trimming the cache
 /* function trimCache(cacheName, maxItems) {
@@ -63,20 +74,32 @@ self.addEventListener('activate', function (event) {
 
 // Cache First then network strategy starts
 self.addEventListener('fetch', function (event) {
-  var url = 'https://httpbin.org/get';
 
+  var url = 'https://pwagram-75ea1.firebaseio.com/posts';
   if (event.request.url.indexOf(url) > -1) {
-    event.respondWith(
-      caches.open(CACHE_DYNAMIC_NAME)
-      .then(function (cache) {
-        return fetch(event.request)
-          .then(function (res) {
-            /* trimCache(CACHE_DYNAMIC_NAME, 3); */
-            cache.put(event.request, res.clone());
-            return res;
+    event.respondWith(fetch(event.request)
+      .then(function (res) {
+        var clonedRes = res.clone();
+        clonedRes.json()
+          .then(function (data) {
+            console.log(data)
+            for (var key in data) {
+              dbPromise
+                .then(function (db) {
+                  var tx = db.transaction('posts', 'readwrite');
+                  var store = tx.objectStore('posts');
+                  store.put(data[key]);
+                  return tx.complete;
+                });
+            }
           });
+        return res;
       })
-    )
+    );
+  } else if (isInArray(event.request.url, STATIC_FILES)) {
+    event.respondWith(
+      caches.match(event.request)
+    );
   } else {
     event.respondWith(
       caches.match(event.request)
@@ -88,7 +111,59 @@ self.addEventListener('fetch', function (event) {
             .then(function (res) {
               return caches.open(CACHE_DYNAMIC_NAME)
                 .then(function (cache) {
-                  /* trimCache(CACHE_DYNAMIC_NAME, 3); */
+                  // trimCache(CACHE_DYNAMIC_NAME, 3);
+                  cache.put(event.request.url, res.clone());
+                  return res;
+                })
+            })
+            .catch(function (err) {
+              return caches.open(CACHE_STATIC_NAME)
+                .then(function (cache) {
+                  if (event.request.headers.get('accept').includes('text/html')) {
+                    return cache.match('/offline.html');
+                  }
+                });
+            });
+        }
+      })
+    );
+  }
+});
+
+/* self.addEventListener('fetch', function (event) {
+  var url = 'https://pwagram-75ea1.firebaseio.com/posts.json';
+
+  if (event.request.url.indexOf(url) > -1) {
+    event.respondWith(fetch(event.request)
+      .then(function (res) {
+        var clonedRes = res.clone();
+        clonedRes.json()
+          .then(function (data) {
+            for (var key in data) {
+              dbPromise
+                .then(function (db) {
+                  var tx = db.transaction('posts', 'readwrite');
+                  var store = tx.objectStore('posts');
+                  store.put(data[key]);
+                  return tx.complete;
+                });
+            }
+          });
+        return res;
+      })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request)
+      .then(function (response) {
+        if (response) {
+          return response;
+        } else {
+          return fetch(event.request)
+            .then(function (res) {
+              return caches.open(CACHE_DYNAMIC_NAME)
+                .then(function (cache) {
+                   trimCache(CACHE_DYNAMIC_NAME, 3); 
                   cache.put(event.request.url, res.clone())
                   return res;
                 })
@@ -105,7 +180,7 @@ self.addEventListener('fetch', function (event) {
       })
     );
   }
-});
+}); */
 
 // Cache First then network strategy ends
 
