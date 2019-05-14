@@ -35,6 +35,8 @@ var STATIC_FILES = [
     })
 } */
 
+var url = 'https://pwagram-75ea1.firebaseio.com/posts';
+
 function isInArray(string, array) {
   var cachePath;
   if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
@@ -79,7 +81,6 @@ self.addEventListener('activate', function (event) {
 // Cache First then network strategy starts
 self.addEventListener('fetch', function (event) {
 
-  var url = 'https://pwagram-75ea1.firebaseio.com/posts';
   if (event.request.url.indexOf(url) > -1) {
     event.respondWith(fetch(event.request)
       .then(function (res) {
@@ -209,3 +210,39 @@ self.addEventListener('fetch', function (event) {
             })
     );
 }); */
+
+self.addEventListener('sync', function (event) {
+  console.log('[SW] Background syncing...', event);
+  if (event.tag === 'sync-new-posts') {
+    console.log('[SW] Syncing new Posts');
+    event.waitUntil(
+      readAllData('sync-posts')
+      .then(function (data) {
+        for (var dt of data) {
+          fetch('https://pwagram-75ea1.firebaseio.com/posts.json', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                id: dt.id,
+                title: dt.title,
+                location: dt.location,
+                image: "https://firebasestorage.googleapis.com/v0/b/pwagram-75ea1.appspot.com/o/docker.jpg?alt=media&token=74df5c75-1a78-447d-a48e-0bdfff5ec1b9"
+              })
+            })
+            .then(function (res) {
+              console.log('Sent data', res);
+              if (res.ok) {
+                deleteItemFromData('sync-posts', dt.id);
+              }
+            })
+            .catch(function (error) {
+              console.log(error);
+            })
+        }
+      })
+    )
+  }
+})

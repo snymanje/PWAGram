@@ -1,6 +1,13 @@
 var dbPromise = idb.open('posts-store', 1, function (db) {
+
     if (!db.objectStoreNames.contains('posts')) {
         db.createObjectStore('posts', {
+            keyPath: 'id'
+        });
+    }
+
+    if (!db.objectStoreNames.contains('sync-posts')) {
+        db.createObjectStore('sync-posts', {
             keyPath: 'id'
         });
     }
@@ -35,7 +42,7 @@ function clearAllData(st) {
         });
 }
 
-function deleteItem(st, id) {
+function deleteItemFromData(st, id) {
     return dbPromise
         .then(function (db) {
             var tx = db.transaction(st, 'readwrite');
