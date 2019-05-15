@@ -125,7 +125,7 @@ if ('indexedDB' in window) {
 }
 
 function sendData() {
-  fetch(url, {
+  fetch('https://us-central1-pwagram-75ea1.cloudfunctions.net/storePostData', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ form.addEventListener('submit', function (event) {
           title: titleInput.value,
           location: locationInput.value
         };
-        writeData('sync-posts', post) y
+        writeData('sync-posts', post)
           .then(function () {
             return sw.sync.register('sync-new-posts');
           })
