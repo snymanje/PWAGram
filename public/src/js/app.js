@@ -64,4 +64,6 @@ if ("Notification" in window) {
       askForNotificationPermission
     );
   }
+} else {
+  alert('Notifications not supported');
 }
