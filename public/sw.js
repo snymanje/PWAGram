@@ -219,18 +219,14 @@ self.addEventListener('sync', function (event) {
       readAllData('sync-posts')
       .then(function (data) {
         for (var dt of data) {
+          var postData = new FormData();
+          postData.append('id', dt.id);
+          postData.append('title', dt.title);
+          postData.append('location', dt.location);
+          postData.append('file', dt.picture, dt.id + '.png');
           fetch('https://us-central1-pwagram-75ea1.cloudfunctions.net/storePostData', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({
-                id: dt.id,
-                title: dt.title,
-                location: dt.location,
-                image: "https://firebasestorage.googleapis.com/v0/b/pwagram-75ea1.appspot.com/o/docker.jpg?alt=media&token=74df5c75-1a78-447d-a48e-0bdfff5ec1b9"
-              })
+              body: postData
             })
             .then(function (res) {
               console.log('Sent data', res);
