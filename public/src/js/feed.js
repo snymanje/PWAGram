@@ -38,7 +38,7 @@ function initializeMedia() {
     })
     .catch(function (err) {
       imagePickerArea.style.display = 'block';
-      console.log(err);
+      alert(err);
     })
 }
 
