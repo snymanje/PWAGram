@@ -5,11 +5,51 @@ var sharedMomentsArea = document.querySelector('#shared-moments');
 var form = document.querySelector('form');
 var titleInput = document.querySelector('#title');
 var locationInput = document.querySelector('#location');
+var videoPlayer = document.querySelector('#palyer');
+var canvasElement = document.querySelector('#canvas');
+var captureButton = document.querySelector('#capture-btn');
+var imagePicker = document.querySelector('#image-picker');
+var imagePickerArea = document.querySelector('#pick-image');
+
+function initializeMedia() {
+  if (!'mediaDevices' in navigator) {
+    if (!('mediaDevices' in navigator)) {
+      navigator.mediaDevices = {};
+    }
+
+    if (!('getUserMedia' in navigator.mediaDevices)) {
+      navigator.mediaDevices.getUserMedia = function (constraints) {
+        var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+        if (!getUserMedia) {
+          return Promise.reject(new Error('getUserMedia is not implemented'));
+        }
+
+        return new Promise(function (resolve, reject) {
+          getUserMedia.call(navigator, constraints, resolve, reject);
+        });
+      }
+    }
+  }
+
+  navigator.mediaDevices.getUserMedia({
+      video: true
+    })
+    .then(function (stream) {
+      videoPlayer.srcObject = stream;
+      videoPlayer.style.display = 'block';
+    })
+    .catch(function (err) {
+      imagePickerArea.style.display = 'block';
+      console.log(err);
+    })
+}
 
 function openCreatePostModal() {
   // createPostArea.style.display = 'block';
   // setTimeout(function() {
   createPostArea.style.transform = 'translateY(0)';
+  initializeMedia();
   // }, 1);
   if (deferredPrompt) {
     deferredPrompt.prompt();
@@ -39,7 +79,9 @@ function openCreatePostModal() {
 
 function closeCreatePostModal() {
   createPostArea.style.transform = 'translateY(100vh)';
-  // createPostArea.style.display = 'none';
+  imagePickerArea.style.display = 'none';
+  videoPlayer.style.display = 'none';
+  canvasElement.style.display = 'none';
 }
 
 shareImageButton.addEventListener('click', openCreatePostModal);
