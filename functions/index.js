@@ -19,7 +19,7 @@ var serviceAccount = require("./pwaKey.json");
 
 var gcconfig = {
     projectId: "pwagram-75ea1",
-    keyFilename: "pwagram-fb-key.json"
+    keyFilename: "pwaKey.json"
 };
 
 var gcs = require("@google-cloud/storage")(gcconfig);
