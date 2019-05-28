@@ -11,6 +11,53 @@ var captureButton = document.querySelector('#capture-btn');
 var imagePicker = document.querySelector('#image-picker');
 var imagePickerArea = document.querySelector('#pick-image');
 var picture;
+var locationBtn = document.querySelector('#location-btn');
+var locationLoader = document.querySelector('#location-loader');
+var fetchedLocation = {
+  lat: 0,
+  lng: 0
+};
+
+locationBtn.addEventListener('click', function (event) {
+  if (!('geolocation' in navigator)) {
+    return;
+  }
+  var sawAlert = false;
+
+  locationBtn.style.display = 'none';
+  locationLoader.style.display = 'block';
+
+  navigator.geolocation.getCurrentPosition(function (position) {
+    locationBtn.style.display = 'inline';
+    locationLoader.style.display = 'none';
+    fetchedLocation = {
+      lat: position.coords.latitude,
+      lng: 0
+    };
+    locationInput.value = 'In Munich';
+    document.querySelector('#manual-location').classList.add('is-focused');
+  }, function (err) {
+    console.log(err);
+    locationBtn.style.display = 'inline';
+    locationLoader.style.display = 'none';
+    if (!sawAlert) {
+      alert('Couldn\'t fetch location, please enter manually!');
+      sawAlert = true;
+    }
+    fetchedLocation = {
+      lat: 0,
+      lng: 0
+    };
+  }, {
+    timeout: 7000
+  });
+});
+
+function initializeLocation() {
+  if (!('geolocation' in navigator)) {
+    locationBtn.style.display = 'none';
+  }
+}
 
 function initializeMedia() {
   if (!('mediaDevices' in navigator)) {
@@ -30,6 +77,7 @@ function initializeMedia() {
       });
     }
   }
+
   navigator.mediaDevices.getUserMedia({
       video: true
     })
@@ -39,8 +87,7 @@ function initializeMedia() {
     })
     .catch(function (err) {
       imagePickerArea.style.display = 'block';
-      alert(err);
-    })
+    });
 }
 
 captureButton.addEventListener('click', function (event) {
@@ -50,16 +97,23 @@ captureButton.addEventListener('click', function (event) {
   var context = canvasElement.getContext('2d');
   context.drawImage(videoPlayer, 0, 0, canvas.width, videoPlayer.videoHeight / (videoPlayer.videoWidth / canvas.width));
   videoPlayer.srcObject.getVideoTracks().forEach(function (track) {
-    track.stop()
+    track.stop();
   });
   picture = dataURItoBlob(canvasElement.toDataURL());
+});
+
+imagePicker.addEventListener('change', function (event) {
+  picture = event.target.files[0];
 });
 
 function openCreatePostModal() {
   // createPostArea.style.display = 'block';
   // setTimeout(function() {
-  createPostArea.style.transform = 'translateY(0)';
+  setTimeout(function () {
+    createPostArea.style.transform = 'translateY(0)';
+  }, 1);
   initializeMedia();
+  initializeLocation();
   // }, 1);
   if (deferredPrompt) {
     deferredPrompt.prompt();
@@ -88,10 +142,21 @@ function openCreatePostModal() {
 }
 
 function closeCreatePostModal() {
-  createPostArea.style.transform = 'translateY(100vh)';
   imagePickerArea.style.display = 'none';
   videoPlayer.style.display = 'none';
   canvasElement.style.display = 'none';
+  locationBtn.style.display = 'inline';
+  locationLoader.style.display = 'none';
+  captureButton.style.display = 'inline';
+  if (videoPlayer.srcObject) {
+    videoPlayer.srcObject.getVideoTracks().forEach(function (track) {
+      track.stop();
+    });
+  }
+  setTimeout(function () {
+    createPostArea.style.transform = 'translateY(100vh)';
+  }, 1);
+  // createPostArea.style.display = 'none';
 }
 
 shareImageButton.addEventListener('click', openCreatePostModal);
@@ -182,6 +247,8 @@ function sendData() {
   postData.append('id', id);
   postData.append('title', titleInput.value);
   postData.append('location', locationInput.value);
+  postData.append('rawLocationLat', fetchedLocation.lat);
+  postData.append('rawLocationLng', fetchedLocation.lng);
   postData.append('file', picture, id + '.png');
 
   fetch('https://us-central1-pwagram-75ea1.cloudfunctions.net/storePostData', {
@@ -192,9 +259,6 @@ function sendData() {
       console.log('Sent data', res);
       updateUI();
     })
-    .catch(function (error) {
-      console.log(error);
-    })
 }
 
 form.addEventListener('submit', function (event) {
@@ -204,6 +268,7 @@ form.addEventListener('submit', function (event) {
     alert('Please enter valid data!');
     return;
   }
+
   closeCreatePostModal();
 
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
@@ -213,7 +278,8 @@ form.addEventListener('submit', function (event) {
           id: new Date().toISOString(),
           title: titleInput.value,
           location: locationInput.value,
-          picture: picture
+          picture: picture,
+          rawLocation: fetchedLocation
         };
         writeData('sync-posts', post)
           .then(function () {
@@ -223,14 +289,14 @@ form.addEventListener('submit', function (event) {
             var snackbarContainer = document.querySelector('#confirmation-toast');
             var data = {
               message: 'Your Post was saved for syncing!'
-            }
+            };
             snackbarContainer.MaterialSnackbar.showSnackbar(data);
           })
           .catch(function (err) {
-            console.log(err)
-          })
+            console.log(err);
+          });
       });
   } else {
     sendData();
   }
-})
+});

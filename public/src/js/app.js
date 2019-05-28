@@ -1,25 +1,24 @@
+
 var deferredPrompt;
-var enableNotificationsButtons = document.querySelectorAll(
-  ".enable-notifications"
-);
+var enableNotificationsButtons = document.querySelectorAll('.enable-notifications');
 
 if (!window.Promise) {
   window.Promise = Promise;
 }
 
-if ("serviceWorker" in navigator) {
+if ('serviceWorker' in navigator) {
   navigator.serviceWorker
-    .register("/sw.js")
+    .register('/sw.js')
     .then(function () {
-      console.log("Service worker registered!");
+      console.log('Service worker registered!');
     })
-    .catch(function (err) {
+    .catch(function(err) {
       console.log(err);
     });
 }
 
-window.addEventListener("beforeinstallprompt", function (event) {
-  console.log("beforeinstallprompt fired");
+window.addEventListener('beforeinstallprompt', function(event) {
+  console.log('beforeinstallprompt fired');
   event.preventDefault();
   deferredPrompt = event;
   return false;
@@ -28,31 +27,25 @@ window.addEventListener("beforeinstallprompt", function (event) {
 function displayConfirmNotification() {
   if ('serviceWorker' in navigator) {
     var options = {
-      body: 'You successfully subscribed to this service.',
+      body: 'You successfully subscribed to our Notification service!',
       icon: '/src/images/icons/app-icon-96x96.png',
       image: '/src/images/sf-boat.jpg',
       dir: 'ltr',
-      lang: 'en-US',
+      lang: 'en-US', // BCP 47,
       vibrate: [100, 50, 200],
       badge: '/src/images/icons/app-icon-96x96.png',
-      tag: 'confirm-notifications',
+      tag: 'confirm-notification',
       renotify: true,
-      actions: [{
-          action: 'confirm',
-          title: 'Okay',
-          icon: '/src/images/icons/app-icon-96x96.png'
-        },
-        {
-          action: 'cancel',
-          title: 'Cancel',
-          icon: '/src/images/icons/app-icon-96x96.png'
-        }
+      actions: [
+        { action: 'confirm', title: 'Okay', icon: '/src/images/icons/app-icon-96x96.png' },
+        { action: 'cancel', title: 'Cancel', icon: '/src/images/icons/app-icon-96x96.png' }
       ]
     };
+
     navigator.serviceWorker.ready
-      .then(function (swreg) {
+      .then(function(swreg) {
         swreg.showNotification('Successfully subscribed!', options);
-      })
+      });
   }
 }
 
@@ -63,25 +56,25 @@ function configurePushSub() {
 
   var reg;
   navigator.serviceWorker.ready
-    .then(function (swreg) {
+    .then(function(swreg) {
       reg = swreg;
       return swreg.pushManager.getSubscription();
     })
-    .then(function (sub) {
+    .then(function(sub) {
       if (sub === null) {
-        //Create new
-        var vapidPk = 'BCHMXjG9-wl_G735ZgBBfnqGHM37B-Lz3VI958MIAcM5RKnPneAb_sa-9t-H1UTaKSf7rc8imz5ZrKh6KzsNK8w';
-        var convertedVapidPublicKey = urlBase64ToUint8Array(vapidPk);
+        // Create a new subscription
+        var vapidPublicKey = 'BKapuZ3XLgt9UZhuEkodCrtnfBo9Smo-w1YXCIH8YidjHOFAU6XHpEnXefbuYslZY9vtlEnOAmU7Mc-kWh4gfmE';
+        var convertedVapidPublicKey = urlBase64ToUint8Array(vapidPublicKey);
         return reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: convertedVapidPublicKey
-        })
+        });
       } else {
-        // We have one
+        // We have a subscription
       }
     })
-    .then(function (newSub) {
-      return fetch('https://pwagram-75ea1.firebaseio.com/subscriptions.json', {
+    .then(function(newSub) {
+      return fetch('https://pwagram-99adf.firebaseio.com/subscriptions.json', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,39 +83,31 @@ function configurePushSub() {
         body: JSON.stringify(newSub)
       })
     })
-    .then(function (res) {
+    .then(function(res) {
       if (res.ok) {
         displayConfirmNotification();
       }
     })
-    .catch(function (error) {
-      console.log(error);
-    })
+    .catch(function(err) {
+      console.log(err);
+    });
 }
 
 function askForNotificationPermission() {
-  Notification.requestPermission(function (result) {
-    console.log("User Choice", result);
-    if (result !== "granted") {
-      console.log("No notification permission granted.");
+  Notification.requestPermission(function(result) {
+    console.log('User Choice', result);
+    if (result !== 'granted') {
+      console.log('No notification permission granted!');
     } else {
       configurePushSub();
-      //displayConfirmNotification();
+      // displayConfirmNotification();
     }
   });
 }
 
-if ("Notification" in window) {
-  console.log("Yes, Notifications in available in the browser.");
+if ('Notification' in window && 'serviceWorker' in navigator) {
   for (var i = 0; i < enableNotificationsButtons.length; i++) {
-    enableNotificationsButtons[i].style.display =
-      "inline-block";
-    enableNotificationsButtons[i].addEventListener(
-      "click",
-      askForNotificationPermission
-    );
+    enableNotificationsButtons[i].style.display = 'inline-block';
+    enableNotificationsButtons[i].addEventListener('click', askForNotificationPermission);
   }
 }
-/* else {
-  alert('Notifications not supported');
-} */

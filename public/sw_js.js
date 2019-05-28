@@ -1,14 +1,13 @@
 importScripts('/src/js/idb.js');
 importScripts('/src/js/utility.js');
 
-var CACHE_STATIC_NAME = 'static-v40';
-var CACHE_DYNAMIC_NAME = 'dynamic-v40';
+var CACHE_STATIC_NAME = 'static-v17'
+var CACHE_DYNAMIC_NAME = 'dynamic-v17'
 var STATIC_FILES = [
   '/',
   '/index.html',
   '/offline.html',
   '/src/js/app.js',
-  '/src/js/utility.js',
   '/src/js/feed.js',
   '/src/js/idb.js',
   '/src/js/promise.js',
@@ -22,18 +21,32 @@ var STATIC_FILES = [
   'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
 ];
 
-// function trimCache(cacheName, maxItems) {
-//   caches.open(cacheName)
-//     .then(function (cache) {
-//       return cache.keys()
-//         .then(function (keys) {
-//           if (keys.length > maxItems) {
-//             cache.delete(keys[0])
-//               .then(trimCache(cacheName, maxItems));
-//           }
-//         });
-//     })
-// }
+//Trimming the cache
+/* function trimCache(cacheName, maxItems) {
+  caches.open(cacheName)
+    .then(function (cache) {
+      return cache.keys()
+    })
+    .then(function (keys) {
+      if (keys.length > maxItems) {
+        cache.delete(keys[0])
+          .then(trimCache(cacheName, maxItems));
+      }
+    })
+} */
+
+var url = 'https://pwagram-75ea1.firebaseio.com/posts';
+
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log('matched ', string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
+  }
+  return array.indexOf(cachePath) > -1;
+}
 
 self.addEventListener('install', function (event) {
   console.log('[Service Worker] Installing Service Worker ...', event);
@@ -57,29 +70,17 @@ self.addEventListener('activate', function (event) {
     .then(function (keyList) {
       return Promise.all(keyList.map(function (key) {
         if (key !== CACHE_STATIC_NAME && key !== CACHE_DYNAMIC_NAME) {
-          console.log('[Service Worker] Removing old cache.', key);
-          return caches.delete(key);
+          console.log('Removing old cache', key)
+          return caches.delete(key)
         }
       }));
-    })
-  );
+    }));
   return self.clients.claim();
 });
 
-function isInArray(string, array) {
-  var cachePath;
-  if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
-    console.log('matched ', string);
-    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
-  } else {
-    cachePath = string; // store the full request (for CDNs)
-  }
-  return array.indexOf(cachePath) > -1;
-}
-
+// Cache First then network strategy starts
 self.addEventListener('fetch', function (event) {
 
-  var url = 'https://pwagram-75ea1.firebaseio.com/posts';
   if (event.request.url.indexOf(url) > -1) {
     event.respondWith(fetch(event.request)
       .then(function (res) {
@@ -90,7 +91,7 @@ self.addEventListener('fetch', function (event) {
           })
           .then(function (data) {
             for (var key in data) {
-              writeData('posts', data[key])
+              writeData('posts', data[key]);
             }
           });
         return res;
@@ -130,66 +131,90 @@ self.addEventListener('fetch', function (event) {
   }
 });
 
-// self.addEventListener('fetch', function(event) {
-//   event.respondWith(
-//     caches.match(event.request)
-//       .then(function(response) {
-//         if (response) {
-//           return response;
-//         } else {
-//           return fetch(event.request)
-//             .then(function(res) {
-//               return caches.open(CACHE_DYNAMIC_NAME)
-//                 .then(function(cache) {
-//                   cache.put(event.request.url, res.clone());
-//                   return res;
-//                 })
-//             })
-//             .catch(function(err) {
-//               return caches.open(CACHE_STATIC_NAME)
-//                 .then(function(cache) {
-//                   return cache.match('/offline.html');
-//                 });
-//             });
-//         }
-//       })
-//   );
-// });
+/* self.addEventListener('fetch', function (event) {
+  var url = 'https://pwagram-75ea1.firebaseio.com/posts.json';
 
-// self.addEventListener('fetch', function(event) {
-//   event.respondWith(
-//     fetch(event.request)
-//       .then(function(res) {
-//         return caches.open(CACHE_DYNAMIC_NAME)
-//                 .then(function(cache) {
-//                   cache.put(event.request.url, res.clone());
-//                   return res;
-//                 })
-//       })
-//       .catch(function(err) {
-//         return caches.match(event.request);
-//       })
-//   );
-// });
+  if (event.request.url.indexOf(url) > -1) {
+    event.respondWith(fetch(event.request)
+      .then(function (res) {
+        var clonedRes = res.clone();
+        clonedRes.json()
+          .then(function (data) {
+            for (var key in data) {
+              dbPromise
+                .then(function (db) {
+                  var tx = db.transaction('posts', 'readwrite');
+                  var store = tx.objectStore('posts');
+                  store.put(data[key]);
+                  return tx.complete;
+                });
+            }
+          });
+        return res;
+      })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request)
+      .then(function (response) {
+        if (response) {
+          return response;
+        } else {
+          return fetch(event.request)
+            .then(function (res) {
+              return caches.open(CACHE_DYNAMIC_NAME)
+                .then(function (cache) {
+                   trimCache(CACHE_DYNAMIC_NAME, 3); 
+                  cache.put(event.request.url, res.clone())
+                  return res;
+                })
+            })
+            .catch(function (error) {
+              return caches.open(CACHE_STATIC_NAME)
+                .then(function (cache) {
+                  if (event.request.url.headers.get('accept').includes('text/html')) {
+                    return cache.match('/offline.html');
+                  }
+                })
+            });
+        }
+      })
+    );
+  }
+}); */
 
-// Cache-only
-// self.addEventListener('fetch', function (event) {
-//   event.respondWith(
-//     caches.match(event.request)
-//   );
-// });
+// Cache First then network strategy ends
 
-// Network-only
-// self.addEventListener('fetch', function (event) {
-//   event.respondWith(
-//     fetch(event.request)
-//   );
-// });
+/* self.addEventListener('fetch', function (event) {
+    event.respondWith(
+        caches.match(event.request)
+            .then(function (response) {
+                if (response) {
+                    return response;
+                } else {
+                    return fetch(event.request)
+                        .then(function (res) {
+                            return caches.open(CACHE_DYNAMIC_NAME)
+                                .then(function (cache) {
+                                    cache.put(event.request.url, res.clone())
+                                    return res;
+                                })
+                        })
+                        .catch(function (error) {
+                            return caches.open(CACHE_STATIC_NAME)
+                                .then(function (cache) {
+                                    return cache.match('/offline.html');
+                                })
+                        });
+                }
+            })
+    );
+}); */
 
 self.addEventListener('sync', function (event) {
-  console.log('[Service Worker] Background syncing', event);
+  console.log('[SW] Background syncing...', event);
   if (event.tag === 'sync-new-posts') {
-    console.log('[Service Worker] Syncing new Posts');
+    console.log('[SW] Syncing new Posts');
     event.waitUntil(
       readAllData('sync-posts')
       .then(function (data) {
@@ -198,10 +223,7 @@ self.addEventListener('sync', function (event) {
           postData.append('id', dt.id);
           postData.append('title', dt.title);
           postData.append('location', dt.location);
-          postData.append('rawLocationLat', dt.rawLocation.lat);
-          postData.append('rawLocationLng', dt.rawLocation.lng);
           postData.append('file', dt.picture, dt.id + '.png');
-
           fetch('https://us-central1-pwagram-75ea1.cloudfunctions.net/storePostData', {
               method: 'POST',
               body: postData
@@ -212,18 +234,17 @@ self.addEventListener('sync', function (event) {
                 res.json()
                   .then(function (resData) {
                     deleteItemFromData('sync-posts', resData.id);
-                  });
+                  })
               }
             })
-            .catch(function (err) {
-              console.log('Error while sending data', err);
-            });
+            .catch(function (error) {
+              console.log(error);
+            })
         }
-
       })
-    );
+    )
   }
-});
+})
 
 self.addEventListener('notificationclick', function (event) {
   var notification = event.notification;
@@ -256,18 +277,17 @@ self.addEventListener('notificationclick', function (event) {
 });
 
 self.addEventListener('notificationclose', function (event) {
-  console.log('Notification was closed', event);
-});
+  console.log('Notification was closed');
+})
 
 self.addEventListener('push', function (event) {
-  console.log('Push Notification received', event);
+  console.log('Push notification received.', event);
 
   var data = {
     title: 'New!',
-    content: 'Something new happened!',
+    content: 'Something new...',
     openUrl: '/'
   };
-
   if (event.data) {
     data = JSON.parse(event.data.text());
   }
@@ -284,4 +304,4 @@ self.addEventListener('push', function (event) {
   event.waitUntil(
     self.registration.showNotification(data.title, options)
   );
-});
+})
