@@ -17,7 +17,7 @@
   "author": "Maximilian Schwarzmüller",
   "license": "ISC",
   "devDependencies": {
-    "http-server": "^0.10.0"
+    "http-server": "^14.1.1"
   },
   "dependencies": {
     "@google-cloud/storage": "^2.5.0",
